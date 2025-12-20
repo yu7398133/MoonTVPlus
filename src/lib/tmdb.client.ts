@@ -65,7 +65,7 @@ export async function getTMDBUpcomingMovies(
     }
 
     const url = `https://api.themoviedb.org/3/movie/upcoming?api_key=${apiKey}&language=zh-CN&page=${page}&region=${region}`;
-    const fetchOptions: RequestInit = proxy ? { agent: new HttpsProxyAgent(proxy) as any } : {};
+    const fetchOptions: any = proxy ? { agent: new HttpsProxyAgent(proxy) } : {};
 
     const response = await fetch(url, fetchOptions);
 
@@ -105,7 +105,7 @@ export async function getTMDBUpcomingTVShows(
 
     // 使用 on_the_air 接口获取正在播出的电视剧
     const url = `https://api.themoviedb.org/3/tv/on_the_air?api_key=${apiKey}&language=zh-CN&page=${page}`;
-    const fetchOptions: RequestInit = proxy ? { agent: new HttpsProxyAgent(proxy) as any } : {};
+    const fetchOptions: any = proxy ? { agent: new HttpsProxyAgent(proxy) } : {};
 
     const response = await fetch(url, fetchOptions);
 

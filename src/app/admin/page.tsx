@@ -364,6 +364,7 @@ interface DataSource {
   disabled?: boolean;
   from: 'config' | 'custom';
   proxyMode?: boolean;
+  weight?: number;
 }
 
 // 直播源数据类型
@@ -4500,6 +4501,45 @@ const VideoSourceConfig = ({
     });
   };
 
+  const handleUpdateWeight = (key: string, weight: number) => {
+    // 调用API更新
+    withLoading(`updateWeight_${key}`, async () => {
+      try {
+        const response = await fetch('/api/admin/source', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'update_weight',
+            key,
+            weight,
+          }),
+        });
+
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data.error || `操作失败: ${response.status}`);
+        }
+
+        await refreshConfig();
+      } catch (error) {
+        // 失败时回滚本地状态到配置中的值
+        const originalWeight = config?.SourceConfig?.find(s => s.key === key)?.weight ?? 0;
+        setSources((prev) =>
+          prev.map((s) =>
+            s.key === key ? { ...s, weight: originalWeight } : s
+          )
+        );
+        showError(
+          error instanceof Error ? error.message : '更新权重失败',
+          showAlert
+        );
+        throw error;
+      }
+    }).catch(() => {
+      console.error('操作失败', 'update_weight', key, weight);
+    });
+  };
+
   const handleAddSource = () => {
     if (!newSource.name || !newSource.key || !newSource.api) return;
     withLoading('addSource', async () => {
@@ -4811,6 +4851,36 @@ const VideoSourceConfig = ({
               }`}
             />
           </button>
+        </td>
+        <td className='px-6 py-4 whitespace-nowrap'>
+          <input
+            type='number'
+            min='0'
+            max='100'
+            value={source.weight ?? 0}
+            onChange={(e) => {
+              const value = parseInt(e.target.value) || 0;
+              const clampedValue = Math.min(100, Math.max(0, value));
+              // 只更新本地状态，不调用API
+              setSources((prev) =>
+                prev.map((s) =>
+                  s.key === source.key ? { ...s, weight: clampedValue } : s
+                )
+              );
+            }}
+            onBlur={(e) => {
+              const newValue = parseInt(e.target.value) || 0;
+              const clampedValue = Math.min(100, Math.max(0, newValue));
+              const originalWeight = config?.SourceConfig?.find(s => s.key === source.key)?.weight ?? 0;
+
+              // 只有在值发生变化时才调用API
+              if (clampedValue !== originalWeight) {
+                handleUpdateWeight(source.key, clampedValue);
+              }
+            }}
+            className='w-16 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+            title='权重范围：0-100，用于排序和优选评分'
+          />
         </td>
         <td className='px-6 py-4 whitespace-nowrap max-w-[1rem]'>
           {(() => {
@@ -5194,6 +5264,9 @@ const VideoSourceConfig = ({
               </th>
               <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
                 代理模式
+              </th>
+              <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
+                权重
               </th>
               <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
                 有效性

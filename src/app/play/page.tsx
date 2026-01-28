@@ -1322,6 +1322,22 @@ function PlayPageClient() {
   ): Promise<SearchResult> => {
     if (sources.length === 1) return sources[0];
 
+    // 获取配置以获取权重信息
+    let weightMap = new Map<string, number>();
+    try {
+      const configResponse = await fetch('/api/admin/config');
+      if (configResponse.ok) {
+        const configData = await configResponse.json();
+        if (configData.Config?.SourceConfig) {
+          configData.Config.SourceConfig.forEach((source: any) => {
+            weightMap.set(source.key, source.weight ?? 0);
+          });
+        }
+      }
+    } catch (error) {
+      console.warn('获取配置失败，权重将使用默认值0:', error);
+    }
+
     // 将播放源均分为两批，并发测速各批，避免一次性过多请求
     const batchSize = Math.ceil(sources.length / 2);
     const allResults: Array<{
@@ -1388,9 +1404,15 @@ function PlayPageClient() {
 
     setPrecomputedVideoInfo(newVideoInfoMap);
 
+    // 如果所有测速都失败，仍然按权重排序返回
     if (successfulResults.length === 0) {
-      console.warn('所有播放源测速都失败，使用第一个播放源');
-      return sources[0];
+      console.warn('所有播放源测速都失败，按权重排序');
+      const sortedByWeight = [...sources].sort((a, b) => {
+        const weightA = weightMap.get(a.source) ?? 0;
+        const weightB = weightMap.get(b.source) ?? 0;
+        return weightB - weightA;
+      });
+      return sortedByWeight[0];
     }
 
     // 找出所有有效速度的最大值，用于线性映射
@@ -1425,7 +1447,8 @@ function PlayPageClient() {
         result.testResult,
         maxSpeed,
         minPing,
-        maxPing
+        maxPing,
+        weightMap.get(result.source.source) ?? 0
       ),
     }));
 
@@ -1455,7 +1478,8 @@ function PlayPageClient() {
     },
     maxSpeed: number,
     minPing: number,
-    maxPing: number
+    maxPing: number,
+    weight: number = 0
   ): number => {
     let score = 0;
 
@@ -1512,6 +1536,9 @@ function PlayPageClient() {
       return Math.min(100, Math.max(0, pingRatio * 100));
     })();
     score += pingScore * 0.2;
+
+    // 权重加分 - 直接加到总分上（0-100分）
+    score += weight;
 
     return Math.round(score * 100) / 100; // 保留两位小数
   };

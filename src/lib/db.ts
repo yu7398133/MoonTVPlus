@@ -273,6 +273,8 @@ export class DbManager {
   // Music V2 历史记录相关
   async listMusicV2History(userName: string): Promise<MusicV2HistoryRecord[]> {
     if (typeof (this.storage as any).listMusicV2History === 'function') {
+      // 按播放队列顺序返回（createdAt ASC），
+      // 当前播放项由调用方基于 lastPlayedAt 决定。
       return (this.storage as any).listMusicV2History(userName);
     }
     return [];
@@ -553,7 +555,8 @@ export class DbManager {
   async getUserListV2(
     offset = 0,
     limit = 20,
-    ownerUsername?: string
+    ownerUsername?: string,
+    search?: string
   ): Promise<{
     users: Array<{
       username: string;
@@ -567,7 +570,7 @@ export class DbManager {
     total: number;
   }> {
     if (typeof (this.storage as any).getUserListV2 === 'function') {
-      return (this.storage as any).getUserListV2(offset, limit, ownerUsername);
+      return (this.storage as any).getUserListV2(offset, limit, ownerUsername, search);
     }
     return { users: [], total: 0 };
   }

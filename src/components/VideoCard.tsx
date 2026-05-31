@@ -69,6 +69,7 @@ export interface VideoCardProps {
     episodes?: string[];
     episodes_titles?: string[];
   };
+  onBeforeNavigate?: () => void;
 }
 
 export type VideoCardHandle = {
@@ -107,6 +108,7 @@ const VideoCard = forwardRef<VideoCardHandle, VideoCardProps>(function VideoCard
     playTime,
     totalTime,
     cmsData,
+    onBeforeNavigate,
   }: VideoCardProps,
   ref
 ) {
@@ -326,6 +328,8 @@ const VideoCard = forwardRef<VideoCardHandle, VideoCardProps>(function VideoCard
       return;
     }
 
+    onBeforeNavigate?.();
+
     if (origin === 'live' && actualSource && actualId) {
       // 直播内容跳转到直播页面
       const url = `/live?source=${actualSource.replace('live_', '')}&id=${actualId.replace('live_', '')}`;
@@ -376,6 +380,7 @@ const VideoCard = forwardRef<VideoCardHandle, VideoCardProps>(function VideoCard
     isAggregate,
     actualQuery,
     actualSearchType,
+    onBeforeNavigate,
   ]);
 
   // 新标签页播放处理函数
@@ -384,6 +389,8 @@ const VideoCard = forwardRef<VideoCardHandle, VideoCardProps>(function VideoCard
     if (isUpcoming) {
       return;
     }
+
+    onBeforeNavigate?.();
 
     if (origin === 'live' && actualSource && actualId) {
       // 直播内容跳转到直播页面
@@ -411,6 +418,7 @@ const VideoCard = forwardRef<VideoCardHandle, VideoCardProps>(function VideoCard
     isAggregate,
     actualQuery,
     actualSearchType,
+    onBeforeNavigate,
   ]);
 
   // 检查搜索结果的收藏状态
@@ -1031,10 +1039,10 @@ const VideoCard = forwardRef<VideoCardHandle, VideoCardProps>(function VideoCard
                 e.preventDefault();
                 return false;
               }}
-            >
-              {/* 集数显示 */}
-              <div
-                className='bg-black/60 text-white text-[9px] sm:text-xs font-medium px-2 sm:px-3 py-0.5 sm:py-1 rounded-full shadow-md transition-all duration-300 ease-out group-hover:scale-110 backdrop-blur-sm flex items-center justify-center'
+              >
+                {/* 集数显示 */}
+                <div
+                  className='bg-black/60 text-white text-[9px] sm:text-xs font-medium px-2 sm:px-3 py-0.5 sm:py-1 rounded-full shadow-md transition-all duration-300 ease-out group-hover:scale-110 backdrop-blur-sm flex items-center justify-center'
                 style={{
                   WebkitUserSelect: 'none',
                   userSelect: 'none',
@@ -1044,9 +1052,11 @@ const VideoCard = forwardRef<VideoCardHandle, VideoCardProps>(function VideoCard
                   e.preventDefault();
                   return false;
                 }}
-              >
-                共{actualEpisodes}集
-              </div>
+                >
+                {currentEpisode !== undefined && currentEpisode !== null
+                  ? `${currentEpisode}/${actualEpisodes}`
+                  : `共${actualEpisodes}集`}
+                </div>
 
               {/* 年份显示 */}
               {displayYear && (
@@ -1550,7 +1560,7 @@ const VideoCard = forwardRef<VideoCardHandle, VideoCardProps>(function VideoCard
                 </span>
                 {/* 自定义 tooltip */}
                 <div
-                  className='absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1 bg-gray-800 text-white text-xs rounded-md shadow-lg opacity-0 invisible peer-hover:opacity-100 peer-hover:visible transition-all duration-200 ease-out delay-100 whitespace-nowrap pointer-events-none'
+                  className='absolute bottom-full left-1/2 z-10 mb-2 w-max max-w-[min(20rem,calc(100vw-2rem))] -translate-x-1/2 rounded-md bg-gray-800 px-3 py-1 text-center text-xs text-white shadow-lg opacity-0 invisible peer-hover:opacity-100 peer-hover:visible transition-all duration-200 ease-out delay-100 whitespace-normal break-words pointer-events-none'
                   style={{
                     WebkitUserSelect: 'none',
                     userSelect: 'none',

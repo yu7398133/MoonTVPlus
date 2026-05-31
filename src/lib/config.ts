@@ -5,6 +5,17 @@ import { db } from '@/lib/db';
 import { AdminConfig } from './admin.types';
 
 const BUILTIN_DANMAKU_API_BASE = 'https://mtvpls-danmu.netlify.app/87654321';
+const DEFAULT_LIVE_REFRESH_INTERVAL_HOURS = 12;
+
+function normalizeLiveRefreshIntervalHours(refreshIntervalHours?: number): number {
+  const normalizedInterval = Number(refreshIntervalHours);
+
+  if (!Number.isFinite(normalizedInterval) || normalizedInterval <= 0) {
+    return DEFAULT_LIVE_REFRESH_INTERVAL_HOURS;
+  }
+
+  return Math.floor(normalizedInterval);
+}
 
 export interface ApiSite {
   key: string;
@@ -545,6 +556,30 @@ export function configSelfCheck(adminConfig: AdminConfig): AdminConfig {
   if (!adminConfig.LiveConfig || !Array.isArray(adminConfig.LiveConfig)) {
     adminConfig.LiveConfig = [];
   }
+  adminConfig.LiveRefreshIntervalHours = normalizeLiveRefreshIntervalHours(adminConfig.LiveRefreshIntervalHours);
+
+  if (adminConfig.OpenListConfig) {
+    if (!adminConfig.OpenListConfig.RootPaths) {
+      adminConfig.OpenListConfig.RootPaths = adminConfig.OpenListConfig.RootPath
+        ? [adminConfig.OpenListConfig.RootPath]
+        : ['/'];
+    }
+    if (!adminConfig.OpenListConfig.OfflineDownloadPath) {
+      adminConfig.OpenListConfig.OfflineDownloadPath = '/';
+    }
+    if (adminConfig.OpenListConfig.OfflineDownloadUseCustomSource === undefined) {
+      adminConfig.OpenListConfig.OfflineDownloadUseCustomSource = false;
+    }
+    if (adminConfig.OpenListConfig.OfflineDownloadURL === undefined) {
+      adminConfig.OpenListConfig.OfflineDownloadURL = '';
+    }
+    if (adminConfig.OpenListConfig.OfflineDownloadUsername === undefined) {
+      adminConfig.OpenListConfig.OfflineDownloadUsername = '';
+    }
+    if (adminConfig.OpenListConfig.OfflineDownloadPassword === undefined) {
+      adminConfig.OpenListConfig.OfflineDownloadPassword = '';
+    }
+  }
 
   // 用户信息已迁移到新版数据库
   // 这里只保留站长用户用于兼容性，其他用户从数据库读取
@@ -683,6 +718,7 @@ export function configSelfCheck(adminConfig: AdminConfig): AdminConfig {
         return [{
           id: 'default',
           name: process.env.OPDS_NAME || '默认书源',
+          type: 'opds',
           url: envUrl,
           enabled: true,
           authMode: (process.env.OPDS_AUTH_MODE as 'none' | 'basic' | 'header' | undefined) || 'none',
@@ -702,6 +738,13 @@ export function configSelfCheck(adminConfig: AdminConfig): AdminConfig {
   if (!Array.isArray(adminConfig.OPDSConfig.Sources)) {
     adminConfig.OPDSConfig.Sources = [];
   }
+  adminConfig.OPDSConfig.Sources = adminConfig.OPDSConfig.Sources.filter((source: any) => (source?.type || 'opds') === 'opds').map((source: any) => {
+    const { legado: _legado, ...rest } = source || {};
+    return { ...rest, type: 'opds' };
+  });
+  if (!Array.isArray(adminConfig.OPDSConfig.LegadoSubscriptions)) {
+    adminConfig.OPDSConfig.LegadoSubscriptions = [];
+  }
   if (adminConfig.OPDSConfig.CacheTTL === undefined || Number.isNaN(adminConfig.OPDSConfig.CacheTTL)) {
     adminConfig.OPDSConfig.CacheTTL = Number(process.env.OPDS_CACHE_TTL_MS || 10 * 60 * 1000);
   }
@@ -712,6 +755,8 @@ export function configSelfCheck(adminConfig: AdminConfig): AdminConfig {
         Enabled: false,
         Cookie: '',
         SavePath: '/',
+        PlayMode: 'transcode_first',
+        MultiThreadPlayback: false,
       },
       Mobile: {
         Enabled: false,
@@ -749,7 +794,15 @@ export function configSelfCheck(adminConfig: AdminConfig): AdminConfig {
       Enabled: false,
       Cookie: '',
       SavePath: '/',
+      PlayMode: 'transcode_first',
+      MultiThreadPlayback: false,
     };
+  }
+  if (!adminConfig.NetDiskConfig.Quark.PlayMode) {
+    adminConfig.NetDiskConfig.Quark.PlayMode = 'transcode_first';
+  }
+  if (adminConfig.NetDiskConfig.Quark.MultiThreadPlayback === undefined) {
+    adminConfig.NetDiskConfig.Quark.MultiThreadPlayback = false;
   }
 
   if (!adminConfig.NetDiskConfig.Mobile) {
@@ -808,6 +861,18 @@ export function configSelfCheck(adminConfig: AdminConfig): AdminConfig {
     };
   } else if (adminConfig.MusicConfig.ProxyEnabled === undefined) {
     adminConfig.MusicConfig.ProxyEnabled = true;
+  }
+
+  if (!adminConfig.OPDSConfig) {
+    adminConfig.OPDSConfig = {
+      Enabled: false,
+      Sources: [],
+      CacheTTL: 10 * 60 * 1000,
+    };
+  } else {
+    if (adminConfig.OPDSConfig.CacheTTL === undefined) {
+      adminConfig.OPDSConfig.CacheTTL = 10 * 60 * 1000;
+    }
   }
 
   return adminConfig;
